@@ -150,7 +150,7 @@ The **meeting scheduler algorithm** works as follows:
 |----------|----------|------------|
 | Server A | UDP      | **21+XXX** |
 | Server B | UDP      | **22+XXX** |
-| Server M | TCP      | **24+XXX** |
+| Server M | UDP      | **24+XXX** |
 | Server M | UDP      | **23+XXX** |
 | Client   | TCP      | **Dynamic**|
 
