@@ -88,63 +88,213 @@ The system consists of **four main components**:
 
 ## 🔹 Constraints Considered While Developing the Algorithm
 
-- **Efficient Time Complexity:** The algorithm efficiently computes **common time slots** with **O(N log N)** complexity for sorting and merging intervals.
-- **Memory Efficiency:** Uses **data structures like maps and vectors** to handle large input sizes **(up to 200 lines per file)**.
-- **Input Validation:** Ensures:
-  - **Non-overlapping time intervals**.
-  - **Correctly formatted usernames and time slots**.
-  - **Removal of unwanted spaces before processing.**
-- **Scalability:** The algorithm is designed to **handle up to 10 usernames per query** efficiently.
-- **Consistency:** Ensures that **intersection results remain sorted** and **retain all valid overlapping intervals**.
-- **Robust Handling of Edge Cases:**  
-  - Users with **only one time interval**.
-  - Handling **very short or very long availability slots**.
-  - Large input sizes **without performance degradation**.
+### **🔸 Efficiency**
+- **User list processing (hashmap lookup):** `O(U)`
+- **Sorting user intervals before merging:** `O(N log N)`
+- **Merging time slots for intersection:** `O(N)`
+- **Sending & receiving data from backend servers:** `O(K)`
+- **Overall Time Complexity:** `O(U log U + N log N)`
+
+**Final Complexity:**  
+`O(U log U + N log N)`,  
+where **U = number of users in request** and **N = number of time intervals processed**.
+
+- **Pairwise intersection checking** ensures that only **valid overlapping intervals** are considered.
+- **Memory Efficiency:**  
+  - Uses **maps or hash tables** to store and retrieve user availability efficiently.
+  - Can handle **large input sizes (up to 200 lines per file) without excessive memory consumption**.
 
 ---
 
-## 🔹 Algorithm for Finding Common Meeting Slots
-
-The **meeting scheduler algorithm** works as follows:
-
-1. **Single Participant**  
-   - If only **one user** is in the meeting request, the backend server returns their **full availability**.
-
-2. **Two Participants**  
-   - The backend server retrieves **two lists of time intervals** from its database.  
-   - It **compares overlapping time slots** and stores valid intersections.  
-   - Example:
-     ```
-     Alice: [[1,10],[11,12]]
-     Bob: [[5,9],[11,15]]
-     ```
-     **Output**: `[[5,9],[11,12]]`
-
-3. **More than Two Participants**  
-   - The algorithm finds **pairwise intersections iteratively**.  
-   - Each time, it compares the **previously found intersections** with the next participant’s schedule.  
-   - Example:
-     ```
-     Alice: [[1,10],[11,12]]
-     Bob: [[5,9],[11,15]]
-     Amy: [[4,12]]
-     ```
-     **Step 1 (Alice & Bob)**: `[[5,9],[11,12]]`  
-     **Step 2 (Previous Result & Amy)**: `[[5,9],[11,12]]` 
-
-  **Final Aggregation**  
-   - The **Main Server** collects results from both backend servers.  
-   - It **computes the final intersection** of the time slots received.  
-   - Example:
-     ```
-     Server A result: [[6,7],[10,12],[14,15]]
-     Server B result: [[3,8],[9,15]]
-     ```
-     **Final Intersection**: `[[6,7],[10,12],[14,15]]`
+### **🔸 Input Validation & Formatting**
+- **Ensures Correct Time Intervals:**
+  - **Start time < End time** for every time slot.
+  - Each interval must be **strictly increasing** (i.e., `t[i]_end < t[i+1]_start`).
+- **Handles Formatting Issues:**
+  - **Removes unwanted spaces** before processing.
+  - Ensures that **usernames contain only lowercase letters** (as required).
+  - **Rejects invalid or malformed time intervals** (e.g., `[[1,1]]` or `[[10,5]]` are invalid).
+- **Handles Cases Where No Intersection Exists:**
+  - If **no overlapping time slots** exist, the algorithm correctly returns **an empty list (`[]`)**.
 
 ---
 
-#🔹Port Assignments
+### **🔸 Scalability & Performance**
+- **Handles Large Datasets Efficiently:**
+  - The algorithm is optimized for processing **large input files (up to 200 lines each)**.
+  - Efficient use of **sorting and merging** prevents excessive computation time.
+- **Designed to Process Multiple Users in One Query:**
+  - Supports up to **10 usernames per request**.
+  - Uses **iterative intersection** to process multiple users efficiently.
+
+---
+
+### **🔸 Robust Handling of Edge Cases**
+- **Handles Single User Queries Efficiently:**
+  - If a **single user** is requested, the backend directly **returns their full availability** without unnecessary computations.
+- **Handles Very Short and Very Long Time Slots:**
+  - Works with **small intervals** like `[[1,2]]` and **large intervals** like `[[0,100]]`.
+- **Correctly Processes Scenarios Where Users Exist on Different Backend Servers:**
+  - Ensures that the **Main Server** correctly assigns **each user to the correct backend server**.
+  - Aggregates results from multiple backend servers correctly.
+
+---
+
+### **🔸 Consistency & Accuracy**
+- **Results Are Always Sorted and Maintain Valid Overlaps:**
+  - Ensures **final intersection lists remain sorted**.
+  - Guarantees that **all overlapping intervals are preserved**.
+- **Ensures All Time Slots Are Fully Processed:**
+  - Even if a user has **multiple separate availability slots**, the algorithm **correctly computes intersections across all of them**.
+- **Adheres to On-Screen Message Requirements:**
+  - **Backend servers print** results after computing intersections.
+  - **Main Server correctly forwards** results and prints appropriate messages.
+
+---
+
+# 🔹 Algorithm for Finding Common Meeting Slots
+
+The **meeting scheduler algorithm** ensures that a meeting can be scheduled by finding **common available time slots** among multiple users stored across two backend servers.
+
+---
+
+## **🔸Step 1: Backend Servers Read and Store Data**
+- **Backend Server A (ServerA)** reads `a.txt` and stores availability data for **a subset of users**.
+- **Backend Server B (ServerB)** reads `b.txt` and stores availability data for **another subset of users**.
+- Each **backend server** sends a list of usernames it manages to the **Main Server** via **UDP**.
+
+### **Example Data in `a.txt` and `b.txt`**
+```
+a.txt:
+alice;[[1,10],[11,12]]
+bob;[[5,9],[11,15]]
+
+b.txt:
+amy;[[4,12]]
+charlie;[[3,8],[9,15]]
+```
+At this stage, **ServerA manages Alice and Bob**, while **ServerB manages Amy and Charlie**.
+
+---
+
+## **🔸 Step 2: Client Sends a Meeting Request**
+1. The **client** enters names of participants.
+2. The **client program** sends the list to the **Main Server** via **TCP**.
+3. The **Main Server** checks which **backend server** stores each user’s data.
+4. It **splits the list** and **forwards requests via UDP** to the respective backend servers.
+
+### **Example Client Request**
+```
+User Input: alice bob amy
+```
+The **Main Server** identifies:
+- `alice` and `bob` → Stored in **ServerA**
+- `amy` → Stored in **ServerB**
+
+Thus, the **Main Server** sends:
+- **To ServerA**: Request for **alice, bob** availability.
+- **To ServerB**: Request for **amy** availability.
+
+---
+
+## **🔸 Step 3: Backend Servers Compute Individual Intersections**
+Each backend server:
+1. **Finds the time availability** for requested users.
+2. **Computes the pairwise intersection** of time slots.
+3. **Sends the result back to the Main Server**.
+
+### **Case 1: One User**
+- If only **one user** is in the request, the backend server directly sends **their availability**.
+
+#### **Example**
+```
+User Input: amy
+```
+Amy’s availability from `b.txt`: `[[4,12]]`  
+Backend Server B returns:  
+```
+[[4,12]]
+```
+---
+
+### **Case 2: Two Users**
+If two users exist, the backend server:
+- **Fetches both users’ time slots**.
+- **Finds overlapping intervals**.
+
+#### **Example (Alice & Bob)**
+```
+Alice: [[1,10],[11,12]]
+Bob: [[5,9],[11,15]]
+```
+**Algorithm computes intersections**:
+- `[1,10]` and `[5,9]` → Intersection: **`[5,9]`**
+- `[11,12]` and `[11,15]` → Intersection: **`[11,12]`**
+
+#### **Backend Server A returns result**  
+```
+[[5,9],[11,12]]
+```
+---
+
+### **Case 3: More than Two Users**
+If there are **three or more** users, the algorithm:
+1. **Finds the intersection between the first two users**.
+2. **Uses the result to find an intersection with the next user**.
+3. **Repeats this process until all users' availability is considered**.
+
+#### **Example (Alice, Bob, and Amy)**
+```
+Alice: [[1,10],[11,12]]
+Bob: [[5,9],[11,15]]
+Amy: [[4,12]]
+```
+**Step 1: Find Alice & Bob’s intersection**
+```
+[[5,9],[11,12]]
+```
+**Step 2: Find intersection of result with Amy**
+```
+[[5,9],[11,12]] ∩ [[4,12]]
+```
+**Final Intersection Result**:  
+```
+[[5,9],[11,12]]
+```
+Backend Servers send results to the **Main Server**.
+
+---
+
+## **🔸 Step 4: Main Server Computes Final Intersection**
+1. **Main Server receives results** from **ServerA and ServerB**.
+2. **It runs another intersection algorithm** between the two sets.
+
+#### **Example**
+```
+Server A result: [[6,7],[10,12],[14,15]]
+Server B result: [[3,8],[9,15]]
+```
+ **Final Intersection Computed by Main Server**  
+```
+[[6,7],[10,12],[14,15]]
+```
+**Main Server sends this to the client.**
+
+---
+
+## **🔸 Step 5: Client Receives and Displays Final Meeting Slots**
+Once the **client receives the final result**, it **displays the available meeting times**:
+
+#### **Example Client Output**
+```
+Time intervals [[6,7],[10,12],[14,15]] work for alice, bob, amy.
+```
+
+ **If no common slots exist, it returns** `[]`.
+
+---
+
+# 🔹Port Assignments
 
 | Process  | Protocol | Port Number|
 |----------|----------|------------|
